@@ -1,0 +1,105 @@
+<html>
+	<head>
+		<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+		<title>(6) Favicon test</title>
+		<link id="favicon" href="favicon_test.ico" rel="shortcut icon" type="image/x-icon">
+		<script type="text/javascript" charset="utf-8">
+		window.addEventListener('load', function() {
+			
+			//var canvas = document.createElement('canvas');
+			var canvas = document.getElementById('preview');
+			canvas.width = 16;
+			canvas.height = 16;
+
+			var favicon;
+			var link_elements = document.getElementsByTagName('link');
+			for(var i = 0; i < link_elements.length; ++i) {
+				if(link_elements[i].rel == 'shortcut icon') {
+					favicon = link_elements[i];
+					break;
+				}
+			}
+			delete link_elements;
+
+			var background = new Image();
+			background.src = favicon.href;
+
+			var ctx = canvas.getContext('2d');
+
+			var draw_icon = function()
+			{
+				ctx.drawImage(background, 0, 0, 16, 16);
+				ctx.save();
+			}
+
+			var clear_badge = function()
+			{
+				ctx.restore();
+				ctx.save();
+			}
+
+			var draw_badge = function(i)
+			{
+				clear_badge();
+
+				ctx.fillStyle = 'red';
+
+				ctx.beginPath();
+				ctx.arc(10, 5, 5, 0, Math.PI * 2, false);
+				ctx.fill();
+
+				ctx.fillStyle = 'white';
+				ctx.font = '5pt Arial';
+				ctx.textAlign = 'center';
+
+				ctx.fillText(i % 100, 10, 7, 7);
+
+				set_favicon();
+			}
+
+			var get_icon_uri = function()
+			{
+				return canvas.toDataURL('image/png');
+			}
+
+			var set_favicon = function()
+			{
+				var head = favicon.parentNode;
+				
+				head.removeChild(favicon);
+				
+				var next = document.createElement('link');
+				next.rel = 'shortcut icon';
+				next.href = get_icon_uri();
+				
+				setTimeout(function() {
+					head.appendChild(next);
+					favicon = next;
+				},1);
+			}
+
+			var check_new_tweets = function()
+			{
+				var tweet_count = document.title.match(/^\((\d+)\)/);
+
+				if(tweet_count)
+					draw_badge(tweet_count[1]);
+				else
+					clear_badge();
+			}
+
+			background.addEventListener('load', function()
+			{
+				console.log('background loaded');
+				
+				draw_icon();
+
+				setInterval(check_new_tweets, 1000);
+			}, false);
+		}, false);
+		</script>
+	</head>
+	<body style="background-color: green">
+		<canvas id="preview">
+	</body>
+</html>
