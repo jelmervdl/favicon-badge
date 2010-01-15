@@ -1,13 +1,24 @@
 // ==UserScript==
 // @name           Favicon badge
+// @namespace      nl.ikhoefgeen
 // @description    Shows badge in favicon when site has a title like "(8) ..."
 // @include        *
 // @author         Favicon badge by Jelmer van der Linde (http://ikhoefgeen.nl) 2010
+// @version        1.0.1
 // ==/UserScript==
+
+/**
+ * Changelog:
+ * v1.0 - 2010-01-11
+ * - initial release
+ *
+ * v1.0.1 - 2010-01-11
+ * - modified unsafeWindow.document instead of document for Google Chrome error
+ */
 
 (function() {
 	
-	var canvas, favicon, background, ctx, current_badge;
+	var canvas, favicon, background, ctx, current_badge, chromeHackFrame;
 	
 	var init = function()
 	{
@@ -15,7 +26,7 @@
 		canvas.width = 16;
 		canvas.height = 16;
 
-		favicon = find_favicon();
+		favicon = find_favicon_node();
 
 		background = new Image();
 		background.addEventListener('load',  function() { check_new_tweets() }, false);
@@ -38,25 +49,33 @@
 		setInterval(check_new_tweets, 1000);
 	}
 	
-	var find_favicon = function()
+	var find_favicon_node = function()
 	{
-		var link_elements = document.getElementsByTagName('link');
+		var link_elements = unsafeWindow.document.getElementsByTagName('link');
 		for(var i = 0; i < link_elements.length; ++i) {
 			if(link_elements[i].rel == 'shortcut icon')
 				return link_elements[i];
 		}
 		
-		var link_element = document.createElement('link');
+		var link_element = create_favicon_node();
+		unsafeWindow.document.getElementsByTagName('head').item(0).appendChild(link_element);
+		
+		return link_element;
+	}
+	
+	var create_favicon_node = function()
+	{
+		var link_element = unsafeWindow.document.createElement('link');
 		link_element.rel = 'shortcut-icon';
 		link_element.type = 'image/x-icon';
-		document.getElementsByTagName('head').item(0).appendChild(link_element);
 		return link_element;
 	}
 	
 	var draw_icon = function()
 	{
 		if(background && background.complete)
-			ctx.drawImage(background, 0, 0, 16, 16);
+			ctx.drawImage(background, 0, 0, background.width, background.height,
+									  0, 0, 16, 16);
 	}
 	
 	var wipe_badge = function()
@@ -106,19 +125,21 @@
 	
 	var get_icon_uri = function()
 	{
-		try {
-			return canvas.toDataURL('image/png');
-		} catch(e) {
-			console.log('shit', e);
-		}
+		return canvas.toDataURL('image/png');
 	}
+	
+	var i = 0;
 	
 	var set_favicon = function()
 	{
-		var next = favicon.cloneNode(false);
-		next.href = get_icon_uri();
-		favicon.parentNode.replaceChild(next, favicon);
-		favicon = next;
+		try {
+			var next = create_favicon_node();
+			next.href = get_icon_uri();
+			favicon.parentNode.appendChild(next);
+			favicon.parentNode.removeChild(favicon);
+			favicon = next;
+		}
+		catch(e) {}
 	}
 	
 	var is_same_domain = function(url)
@@ -195,7 +216,6 @@
 			GM_xmlhttpRequest({
 				url: uri,
 				method: 'GET',
-				headers: { "Referer": document.location.href },
 				overrideMimeType: 'text/plain; charset=x-user-defined',  
 				onload: function(response)
 				{
