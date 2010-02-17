@@ -6,10 +6,11 @@
 		<script type="text/javascript" charset="utf-8">
 		window.addEventListener('load', function() {
 			
-			//var canvas = document.createElement('canvas');
-			var canvas = document.getElementById('preview');
+			var canvas = document.createElement('canvas');
 			canvas.width = 16;
 			canvas.height = 16;
+			
+			var current_tweet_count = null;
 
 			var favicon;
 			var link_elements = document.getElementsByTagName('link');
@@ -64,28 +65,36 @@
 
 			var set_favicon = function()
 			{
-				var head = favicon.parentNode;
+				favicon.href = get_icon_uri();
 				
-				head.removeChild(favicon);
+				update_favicon_hack();
+			}
+			
+			/* Google Chrome needs this to trigger the favicon reload */
+			
+			var update_favicon_hack = function()
+			{
+				var frame = document.createElement('iframe');
+				frame.src = 'about:blank';
+				frame.id = 'hack_frame';
 				
-				var next = document.createElement('link');
-				next.rel = 'shortcut icon';
-				next.href = get_icon_uri();
+				document.body.appendChild(frame);
 				
-				setTimeout(function() {
-					head.appendChild(next);
-					favicon = next;
-				},1);
+				document.body.removeChild(frame);
 			}
 
 			var check_new_tweets = function()
 			{
 				var tweet_count = document.title.match(/^\((\d+)\)/);
 
-				if(tweet_count)
-					draw_badge(tweet_count[1]);
-				else
+				if(tweet_count) {
+					if(tweet_count[1] != current_tweet_count) {
+						draw_badge(tweet_count[1]);
+						current_tweet_count = tweet_count[1];
+					}
+				} else {
 					clear_badge();
+				}
 			}
 
 			background.addEventListener('load', function()
@@ -100,6 +109,6 @@
 		</script>
 	</head>
 	<body style="background-color: green">
-		<canvas id="preview">
+		<canvas id="preview"></canvas>
 	</body>
 </html>
