@@ -1,0 +1,30 @@
+Favicon-badge adds a badge to the favicon when there is a number between
+parentheses. Very handy for twitter.com for example.
+
+favicon_badge.user.js
+	Userscript compatible with Google Chrome and probably Firefox' greasemonkey.
+	
+	1. If there is a <link rel="shortcut icon"> in the head of the document, it
+	will be used.
+		1.1 If the href-attribute points to the same domain, it will try to set
+		    the source of the background-image directly.
+		1.2 Otherwise it will try to use the proxy to load the data as a 
+		    data-uri.
+	2. Otherwise it will create a <link rel="shortcut icon"> and set the src of
+	   the background-image to /favicon.ico.
+	
+	The proxy uses GM_xmlhttpRequest when available to directly download the 
+	image. If this GM function is not supported, it will fallback to stock
+	xmlhttprequest and do a cross-domain call to proxy.php to let it download
+	the image.
+
+proxy.php
+	Proxy for cross-domain xmlhttprequest call.
+
+test.html
+	Old test mostly for the drawing of the badge part. Still has some old hacks
+	in it.
+
+test-2.html
+	Test to test the script for cross-domain favicons. For example twitter, 
+	which hosts it's favicon on a content delivery network.
