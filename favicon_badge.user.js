@@ -4,21 +4,39 @@
 // @description    Shows badge in favicon when site has a title like "(8) ..."
 // @include        *
 // @author         Favicon badge by Jelmer van der Linde (http://ikhoefgeen.nl) 2010
-// @version        1.0.1
+// @version        1.4
 // ==/UserScript==
 
 /**
  * Changelog:
+ * v1.4 - 2010-06-18
+ * - Cross-domain XMLHttpRequest instead of jsonp when possible
+ * 
+ * v1.3 - 2010-05-27
+ * - fixed JSONp proxy in Chrome
+ * - Removed the hidden iframe hack for Chrome, since that bug is solved
+ *
+ * v1.2 - 2010-03-02
+ * - Using hidden iframe to reload favicon in Chrome
+ * - Calling fillText multiple times to make the font readable in Chrome
+ * - Load timeout to try to load the icon when GM_xmlhttpRequest fails
+ *
+ * v1.1 - 2010-01-11
+ * - modified unsafeWindow.document instead of document for Google Chrome error
+ *
  * v1.0 - 2010-01-11
  * - initial release
  *
- * v1.0.1 - 2010-01-11
- * - modified unsafeWindow.document instead of document for Google Chrome error
  */
 
 (function() {
 	
-	var canvas, favicon, background, ctx, current_badge, chromeHackFrame;
+	var draw_passes = 3;
+	
+	var canvas, favicon, background, ctx, current_badge;
+	
+	if(typeof unsafeWindow == 'undefined')
+		var unsafeWindow = window;
 	
 	var init = function()
 	{
@@ -32,20 +50,32 @@
 		background.addEventListener('load',  function() { check_new_tweets() }, false);
 		background.addEventListener('error', function() { background = null }, false);
 		
+		var load_timeout;
+		
 		if(favicon.href) {
-			if(is_same_domain(favicon.href))
-				background.src = favicon.href
-			else
+			if(is_same_domain(favicon.href)) {
+				background.src = favicon.href;
+				console.log('load same domain');
+			} else {
 				load_proxy(favicon.href, function(data) {
 					background.src = data;
+					console.log('loaded from proxy');
+					clearTimeout(load_timeout);
 				});
+				load_timeout = setTimeout(function() {
+					background.src = '/favicon.ico';
+					console.log('proxy fallback');
+				}, 5000);
+				console.log('wait for proxy');
+			}
 		}
 		else {
 			background.src = '/favicon.ico';
+			console.log('fallback');
 		}
 
 		ctx = canvas.getContext('2d');
-		
+
 		setInterval(check_new_tweets, 1000);
 	}
 	
@@ -65,15 +95,15 @@
 	
 	var create_favicon_node = function()
 	{
-		var link_element = unsafeWindow.document.createElement('link');
-		link_element.rel = 'shortcut-icon';
-		link_element.type = 'image/x-icon';
+		var link_element = document.createElement('link');
+		link_element.rel = 'shortcut icon';
+		
 		return link_element;
 	}
 	
 	var draw_icon = function()
 	{
-		if(background && background.complete)
+		if(background && background.src && background.complete)
 			ctx.drawImage(background, 0, 0, background.width, background.height,
 									  0, 0, 16, 16);
 	}
@@ -97,9 +127,9 @@
 		set_favicon();
 	}
 	
-	var draw_badge = function(i)
+	var draw_badge = function(n)
 	{
-		if(current_badge == i)
+		if(current_badge == n)
 			return;
 		
 		wipe_badge();
@@ -116,9 +146,10 @@
 		ctx.font = '5pt Arial';
 		ctx.textAlign = 'center';
 		
-		ctx.fillText(i % 100, 10, 7, 7);
-		
-		current_badge = i;
+		for(var i = 0; i < draw_passes; ++i)
+			ctx.fillText(n % 100, 10, 7, 7);
+
+		current_badge = n;
 		
 		set_favicon();
 	}
@@ -133,11 +164,7 @@
 	var set_favicon = function()
 	{
 		try {
-			var next = create_favicon_node();
-			next.href = get_icon_uri();
-			favicon.parentNode.appendChild(next);
-			favicon.parentNode.removeChild(favicon);
-			favicon = next;
+			favicon.href = get_icon_uri();
 		}
 		catch(e) {}
 	}
@@ -172,8 +199,12 @@
 	 * Uses GM_xmlhttpRequest + base64Encode to download the file and convert it
 	 * to a data-uri. If not available, it will use a webservice that does this
 	 * for you.
+	 *
+	 * Unfortunately Google Chrome's GM_xmlhttpRequest is bound by the same-origin
+	 * policy. So we fallback to the script-tag injection method.
 	 */
-	if(GM_xmlhttpRequest)
+	if(typeof GM_xmlhttpRequest != "undefined" &&
+		navigator.userAgent.toLowerCase().indexOf('chrome') == -1) {
 		var load_proxy = function(uri, callback)
 		{
 			/**
@@ -219,23 +250,24 @@
 				overrideMimeType: 'text/plain; charset=x-user-defined',  
 				onload: function(response)
 				{
-					unsafeWindow.responseHeaders = response.responseHeaders;
-				
 					var mimetype = response.responseHeaders.match(/^Content-Type:\s*([^$]+?)\s*$/m) || ['', 'application/octet-stream'];
-				
 					callback('data:'+mimetype[1]+';base64,'+base64Encode(response.responseText));
 				}
 			});
 		}
-	else
+	} else {
 		var load_proxy = function(uri, callback)
 		{
-			unsafeWindow.__load_proxy_callback = callback;
-
-			var script_tag = document.createElement('script');
-			script_tag.src = 'http://mirror.ikhoefgeen.nl/proxy.php?callback=__load_proxy_callback&uri=' + encodeURIComponent(uri);
-			document.body.appendChild(script_tag);
+			var request = new XMLHttpRequest();
+			request.open('GET', 'http://mirror.ikhoefgeen.nl/proxy.php?uri=' + encodeURIComponent(uri), true);
+			request.onload = function() {
+				if(request.status == 200) {
+					callback(request.responseText);
+				}
+			}
+			request.send(null);
 		}
+	}
 
 	init();
 })();
