@@ -8,6 +8,9 @@
 // ==/UserScript==
 
 /**
+ * Copyright (c) 2013 Jelmer van der Linde
+ * See the file LICENSE for copying permission.
+ *
  * Changelog:
  * v1.4 - 2010-06-18
  * - Cross-domain XMLHttpRequest instead of jsonp when possible

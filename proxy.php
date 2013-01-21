@@ -1,4 +1,8 @@
 <?php
+/**
+ * Copyright (c) 2013 Jelmer van der Linde
+ * See the file LICENSE for copying permission.
+ */
 
 function data_uri($data, $mime) 
 {  
